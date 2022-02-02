@@ -51,13 +51,19 @@ impl Entities {
         self.downstream.push(downstream);
     }
 
-    fn display(&self) -> Vec<(Position, char)> {
+    fn display(&self) -> Vec<(Position, String)> {
         let len = self.position.len();
         let mut output = Vec::with_capacity(len);
         for i in 0..len {
             if self.visible[i] {
                 //let repr = if self.has[i] < 128 { '*' } else { '!' };
-                let repr: char = (48 + i as u8) as char;
+                let c: char = (48 + i as u8) as char;
+                let repr = match self.has[i] {
+                    0..=63 => format!("{ESC}[0;31;40m{c}"),
+                    64..=127 => format!("{ESC}[0;33;40m{c}"),
+                    128..=191 => format!("{ESC}[0;32;40m{c}"),
+                    192..=255 => format!("{ESC}[0;34;40m{c}"),
+                };
                 output.push((self.position[i], repr));
             }
         }
@@ -144,9 +150,11 @@ impl World {
         self.display_border_top();
         self.display_border_sides();
 
+        print!("{ESC}[0;0m{ESC}[0;37;40m");
         for ((x, y), repr) in output {
             print!("{ESC}[{};{}H{repr}", y + 2, x + 2);
         }
+        print!("{ESC}[0;0m{ESC}[0;37;40m");
 
         self.display_border_bottom();
         println!("");
