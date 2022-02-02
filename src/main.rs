@@ -79,12 +79,14 @@ impl Entities {
         let len = self.position.len();
         for i in 0..len {
             for u in &self.upstream[i] {
-                if self.has[*u] >= self.wants[i] {
-                    self.has[i] += self.wants[i];
-                    self.has[*u] -= self.wants[i];
-                } else {
-                    self.has[i] += self.has[*u];
-                    self.has[*u] = 0;
+                if self.has[i] != u8::MAX {
+                    if self.has[*u] >= self.wants[i] {
+                        self.has[i] = self.has[i].saturating_add(self.wants[i]);
+                        self.has[*u] = self.has[*u].saturating_sub(self.wants[i]);
+                    } else {
+                        self.has[i] = self.has[i].saturating_add(self.has[*u]);
+                        self.has[*u] = 0;
+                    }
                 }
             }
         }
@@ -174,9 +176,9 @@ impl World {
 
 fn setup_chain(world: &mut World) {
     world.entities.insert(1, 100, (1, 1), true);
-    world.entities.insert(1, 10, (1, 2), true);
-    world.entities.insert(2, 20, (2, 2), true);
-    world.entities.insert(2, 20, (3, 2), true);
+    world.entities.insert(1, 255, (1, 2), true);
+    world.entities.insert(2, 64, (2, 2), true);
+    world.entities.insert(2, 192, (3, 2), true);
     world.entities.insert(5, 0, (3, 3), true);
 }
 
