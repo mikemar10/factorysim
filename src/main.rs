@@ -1,13 +1,45 @@
 use std::{thread, time};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 const ESC: char = 27 as char;
+
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+struct Resource(u8);
+
+impl Add for Resource {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0.saturating_add(other.0))
+    }
+}
+
+impl AddAssign for Resource {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other;
+    }
+}
+
+impl Sub for Resource {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self(self.0.saturating_sub(other.0))
+    }
+}
+
+impl SubAssign for Resource {
+    fn sub_assign(&mut self, other: Self) {
+        *self = *self - other;
+    }
+}
 
 type Position = (isize, isize);
 
 #[derive(Debug)]
 struct Entities {
-    wants: Vec<u8>,
-    has: Vec<u8>,
+    wants: Vec<Resource>,
+    has: Vec<Resource>,
     position: Vec<Position>,
     visible: Vec<bool>,
     upstream: Vec<Vec<usize>>,
@@ -26,22 +58,22 @@ impl Entities {
         }
     }
 
-    fn insert(&mut self, wants: u8, has: u8, position: (isize, isize), visible: bool) {
+    fn insert(&mut self, wants: Resource, has: Resource, position: (isize, isize), visible: bool) {
         let len = self.position.len();
         let mut upstream = Vec::new();
         let mut downstream = Vec::new();
         let (x, y) = position;
         for i in 0..len {
             if self.position[i] == (x, y - 1) || // up
-               self.position[i] == (x - 1, y) {  // left
-                   upstream.push(i);
-                   self.downstream[i].push(len);
-               }
+                self.position[i] == (x - 1, y) {  // left
+                    upstream.push(i);
+                    self.downstream[i].push(len);
+                }
             if self.position[i] == (x, y + 1) || // down
-               self.position[i] == (x + 1, y) {  // right
-                   downstream.push(i);
-                   self.upstream[i].push(len);
-            }
+                self.position[i] == (x + 1, y) {  // right
+                    downstream.push(i);
+                    self.upstream[i].push(len);
+                }
         }
         self.wants.push(wants);
         self.has.push(has);
@@ -59,10 +91,11 @@ impl Entities {
                 //let repr = if self.has[i] < 128 { '*' } else { '!' };
                 let c: char = (48 + i as u8) as char;
                 let repr = match self.has[i] {
-                    0..=63 => format!("{ESC}[0;31;40m{c}"),
-                    64..=127 => format!("{ESC}[0;33;40m{c}"),
-                    128..=191 => format!("{ESC}[0;32;40m{c}"),
-                    192..=255 => format!("{ESC}[0;34;40m{c}"),
+                    Resource(x) if 0 <= x && x < 64 => format!("{ESC}[0;31;40m{c}"),
+                    Resource(x) if 64 <= x && x < 128 => format!("{ESC}[0;33;40m{c}"),
+                    Resource(x) if 128 <= x && x < 192 => format!("{ESC}[0;32;40m{c}"),
+                    Resource(x) if 192 <= x && x <= 255 => format!("{ESC}[0;34;40m{c}"),
+                    _ => panic!("this should never occur"),
                 };
                 output.push((self.position[i], repr));
             }
@@ -71,7 +104,7 @@ impl Entities {
     }
 
     fn debug_entity(&self, i: usize) {
-        println!("Index: {}\tHas: {}\tWants:{}\tPosition: {:?}\tVisible: {:?}\tUpstream: {:?}\tDownstream: {:?}",
+        println!("Index: {}\tHas: {:?}\tWants:{:?}\tPosition: {:?}\tVisible: {:?}\tUpstream: {:?}\tDownstream: {:?}",
                  i,
                  self.has[i],
                  self.wants[i],
@@ -85,13 +118,14 @@ impl Entities {
         let len = self.position.len();
         for i in 0..len {
             for u in &self.upstream[i] {
-                if self.has[i] != u8::MAX {
+                if self.has[i] != Resource(u8::MAX) {
                     if self.has[*u] >= self.wants[i] {
-                        self.has[i] = self.has[i].saturating_add(self.wants[i]);
-                        self.has[*u] = self.has[*u].saturating_sub(self.wants[i]);
+                        self.has[i] += self.wants[i];
+                        self.has[*u] -= self.wants[i];
                     } else {
-                        self.has[i] = self.has[i].saturating_add(self.has[*u]);
-                        self.has[*u] = 0;
+                        let remainder = self.has[*u];
+                        self.has[i] += remainder;
+                        self.has[*u] = Resource(0);
                     }
                 }
             }
@@ -183,11 +217,11 @@ impl World {
 }
 
 fn setup_chain(world: &mut World) {
-    world.entities.insert(1, 100, (1, 1), true);
-    world.entities.insert(1, 255, (1, 2), true);
-    world.entities.insert(2, 64, (2, 2), true);
-    world.entities.insert(2, 192, (3, 2), true);
-    world.entities.insert(5, 0, (3, 3), true);
+    world.entities.insert(Resource(1), Resource(100), (1, 1), true);
+    world.entities.insert(Resource(1), Resource(255), (1, 2), true);
+    world.entities.insert(Resource(2), Resource(64), (2, 2), true);
+    world.entities.insert(Resource(2), Resource(192), (3, 2), true);
+    world.entities.insert(Resource(5), Resource(0), (3, 3), true);
 }
 
 fn main() {
