@@ -4,13 +4,20 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 const ESC: char = 27 as char;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
-struct Resource(u8);
+enum Resource{
+    A(u8),
+    B(u8),
+}
 
 impl Add for Resource {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Self(self.0.saturating_add(other.0))
+        match (self, other) {
+            (Self::A(s), Self::A(o)) => Self::A(s.saturating_add(o)),
+            (Self::B(s), Self::B(o)) => Self::B(s.saturating_add(o)),
+            _ => panic!("Cannot mix Resource variants"),
+        }
     }
 }
 
@@ -24,7 +31,11 @@ impl Sub for Resource {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        Self(self.0.saturating_sub(other.0))
+        match (self, other) {
+            (Self::A(s), Self::A(o)) => Self::A(s.saturating_sub(o)),
+            (Self::B(s), Self::B(o)) => Self::B(s.saturating_sub(o)),
+            _ => panic!("Cannot mix Resource variants"),
+        }
     }
 }
 
@@ -91,11 +102,14 @@ impl Entities {
                 //let repr = if self.has[i] < 128 { '*' } else { '!' };
                 let c: char = (48 + i as u8) as char;
                 let repr = match self.has[i] {
-                    Resource(x) if 0 <= x && x < 64 => format!("{ESC}[0;31;40m{c}"),
-                    Resource(x) if 64 <= x && x < 128 => format!("{ESC}[0;33;40m{c}"),
-                    Resource(x) if 128 <= x && x < 192 => format!("{ESC}[0;32;40m{c}"),
-                    Resource(x) if 192 <= x && x <= 255 => format!("{ESC}[0;34;40m{c}"),
-                    _ => panic!("this should never occur"),
+                    Resource::A(x) if 0 <= x && x < 64 => format!("{ESC}[0;31;40m{c}"),
+                    Resource::A(x) if 64 <= x && x < 128 => format!("{ESC}[0;33;40m{c}"),
+                    Resource::A(x) if 128 <= x && x < 192 => format!("{ESC}[0;32;40m{c}"),
+                    Resource::A(_) => format!("{ESC}[0;34;40m{c}"),
+                    Resource::B(x) if 0 <= x && x < 64 => format!("{ESC}[0;31;40m{c}"),
+                    Resource::B(x) if 64 <= x && x < 128 => format!("{ESC}[0;33;40m{c}"),
+                    Resource::B(x) if 128 <= x && x < 192 => format!("{ESC}[0;32;40m{c}"),
+                    Resource::B(_) => format!("{ESC}[0;34;40m{c}"),
                 };
                 output.push((self.position[i], repr));
             }
@@ -118,14 +132,14 @@ impl Entities {
         let len = self.position.len();
         for i in 0..len {
             for u in &self.upstream[i] {
-                if self.has[i] != Resource(u8::MAX) {
+                if self.has[i] != Resource::A(u8::MAX) {
                     if self.has[*u] >= self.wants[i] {
                         self.has[i] += self.wants[i];
                         self.has[*u] -= self.wants[i];
                     } else {
                         let remainder = self.has[*u];
                         self.has[i] += remainder;
-                        self.has[*u] = Resource(0);
+                        self.has[*u] = Resource::A(0);
                     }
                 }
             }
@@ -217,11 +231,11 @@ impl World {
 }
 
 fn setup_chain(world: &mut World) {
-    world.entities.insert(Resource(1), Resource(100), (1, 1), true);
-    world.entities.insert(Resource(1), Resource(255), (1, 2), true);
-    world.entities.insert(Resource(2), Resource(64), (2, 2), true);
-    world.entities.insert(Resource(2), Resource(192), (3, 2), true);
-    world.entities.insert(Resource(5), Resource(0), (3, 3), true);
+    world.entities.insert(Resource::A(1), Resource::A(100), (1, 1), true);
+    world.entities.insert(Resource::A(1), Resource::A(255), (1, 2), true);
+    world.entities.insert(Resource::A(2), Resource::B(64), (2, 2), true);
+    world.entities.insert(Resource::A(2), Resource::A(192), (3, 2), true);
+    world.entities.insert(Resource::A(5), Resource::A(0), (3, 3), true);
 }
 
 fn main() {
