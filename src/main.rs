@@ -233,7 +233,7 @@ impl World {
 fn setup_chain(world: &mut World) {
     world.entities.insert(Resource::A(1), Resource::A(100), (1, 1), true);
     world.entities.insert(Resource::A(1), Resource::A(255), (1, 2), true);
-    world.entities.insert(Resource::A(2), Resource::B(64), (2, 2), true);
+    world.entities.insert(Resource::A(2), Resource::A(64), (2, 2), true);
     world.entities.insert(Resource::A(2), Resource::A(192), (3, 2), true);
     world.entities.insert(Resource::A(5), Resource::A(0), (3, 3), true);
 }
